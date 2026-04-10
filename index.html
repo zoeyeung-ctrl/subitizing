@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Quick Sight - Subitizing</title>
+<style>
+    :root {
+        --primary: #FF9800; /* Orange */
+        --secondary: #673AB7; /* Deep Purple */
+        --accent: #00BCD4; /* Cyan */
+        --success: #4CAF50; /* Green */
+        --error: #F44336; /* Red */
+        --bg: #FFF3E0;
+        --font: 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+    }
+
+    body {
+        font-family: var(--font);
+        background-color: var(--bg);
+        margin: 0;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100vh;
+        color: #333;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+
+    h1 { margin: 5px 0 15px 0; color: #E65100; font-size: 1.8rem; text-align: center; }
+
+    /* --- SETUP SCREEN --- */
+    #setup-screen {
+        background: white;
+        padding: 25px;
+        border-radius: 25px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        text-align: center;
+        max-width: 600px;
+        width: 95%;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 15px;
+    }
+
+    .choice-btn {
+        padding: 20px 10px;
+        border: 3px solid #ddd;
+        border-radius: 20px;
+        background: white;
+        font-size: 1.2rem;
+        cursor: pointer;
+        font-family: var(--font);
+        flex: 1;
+        min-width: 80px;
+        transition: transform 0.1s;
+    }
+
+    .choice-btn.selected {
+        background-color: var(--secondary);
+        color: white;
+        border-color: var(--secondary);
+        transform: scale(1.05);
+        box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+    }
+
+    /* Difficulty Colors */
+    .diff-btn[data-diff="mild"].selected { background-color: #81C784; border-color: #81C784; color: #1B5E20; }
+    .diff-btn[data-diff="hot"].selected { background-color: #FFB74D; border-color: #FFB74D; color: #E65100; }
+    .diff-btn[data-diff="spicy"].selected { background-color: #E57373; border-color: #E57373; color: #B71C1C; }
+    
+    .diff-btn small { display: block; font-size: 0.9rem; margin-top: 5px; }
+
+    .start-btn {
+        background: var(--primary);
+        color: white;
+        border: none;
+        padding: 20px 40px;
+        font-size: 1.6rem;
+        border-radius: 50px;
+        cursor: pointer;
+        margin-top: 15px;
+        width: 100%;
+        font-family: var(--font);
+        box-shadow: 0 5px 0 #E65100;
+    }
+    .start-btn:active { transform: translateY(5px); box-shadow: none; }
+
+    /* --- GAME SCREEN --- */
+    #game-screen {
+        display: none;
+        width: 100%;
+        max-width: 700px;
+        flex-direction: column;
+        gap: 15px;
+        padding-bottom: 50px;
+        align-items: center;
+    }
+
+    .top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 0 10px;
+    }
+
+    .menu-btn {
+        background: #90A4AE;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 12px;
+        font-size: 1rem;
+        cursor: pointer;
+        font-family: var(--font);
+    }
+
+    /* VIEWPORT (Where dots appear) */
+    .viewport {
+        width: 100%;
+        height: 280px;
+        background: white;
+        border: 5px solid #333;
+        border-radius: 20px;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 8px 0 rgba(0,0,0,0.1);
+    }
+
+    /* Cover Curtain */
+    .curtain {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: #37474F;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        color: white;
+        font-size: 5rem;
+        font-weight: bold;
+        z-index: 10;
+        transition: transform 0.3s ease-out;
+    }
+    
+    .curtain.open { transform: translateY(-100%); }
+    .curtain p { font-size: 1.5rem; margin-top: 10px; font-weight: normal; }
+
+    /* Ten Frame Grid */
+    .ten-frame {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+        gap: 5px;
+        background: #eee;
+        padding: 10px;
+        border: 3px solid #333;
+    }
+    .tf-cell {
+        width: 40px; height: 40px;
+        border: 1px solid #ccc;
+        background: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .tf-dot {
+        width: 30px; height: 30px;
+        background: #D32F2F; /* Red dots standard for ten frames */
+        border-radius: 50%;
+    }
+
+    /* Scattered Dots */
+    .dot-scatter {
+        width: 40px; height: 40px;
+        background: #3F51B5;
+        border-radius: 50%;
+        position: absolute;
+        box-shadow: 2px 2px 0 rgba(0,0,0,0.2);
+    }
+
+    /* Dice Container */
+    .dice {
+        width: 100px; height: 100px;
+        background: white;
+        border: 3px solid #333;
+        border-radius: 15px;
+        display: grid;
+        grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+        padding: 5px;
+        gap: 2px;
+    }
+    .dice-group {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        align-items: center;
+    }
+    .dice-pip {
+        background: #333;
+        border-radius: 50%;
+        width: 20px; height: 20px;
+        align-self: center;
+        justify-self: center;
+    }
+
+    /* INPUT PAD */
+    .numpad {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+        width: 100%;
+        max-width: 500px;
+    }
+
+    .num-btn {
+        background: white;
+        border: 3px solid #ddd;
+        border-radius: 15px;
+        height: 60px;
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #333;
+        cursor: pointer;
+        font-family: var(--font);
+        box-shadow: 0 4px 0 #ccc;
+    }
+    
+    .num-btn:active { transform: translateY(4px); box-shadow: none; }
+    .num-btn.correct { background: #C8E6C9; border-color: #388E3C; color: #1B5E20; }
+    .num-btn.wrong { background: #FFCDD2; border-color: #D32F2F; color: #B71C1C; opacity: 0.5; }
+
+    /* ACTION BUTTONS */
+    .action-btn {
+        background: var(--secondary);
+        color: white;
+        border: none;
+        padding: 15px 30px;
+        font-size: 1.3rem;
+        border-radius: 50px;
+        cursor: pointer;
+        font-family: var(--font);
+        box-shadow: 0 4px 0 #512DA8;
+        display: none; /* Hidden initially */
+    }
+
+    .peek-btn {
+        background: #FFCA28;
+        color: #333;
+        box-shadow: 0 4px 0 #FFA000;
+        margin-top: 10px;
+        font-size: 1.1rem;
+        padding: 10px 20px;
+        display: none;
+    }
+    
+    .levelup-btn {
+        background: #9C27B0; /* Purple for level up */
+        box-shadow: 0 4px 0 #7B1FA2;
+    }
+
+    #feedback {
+        min-height: 30px;
+        font-size: 1.2rem;
+        font-weight: bold;
+        text-align: center;
+    }
+    
+    .nav-row {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        width: 100%;
+    }
+
+</style>
+</head>
+<body>
+
+    <!-- SETUP SCREEN -->
+    <div id="setup-screen">
+        <h1>👁️ Quick Sight</h1>
+        <p>How fast can you count with your eyes?</p>
+        
+        <div style="width:100%;">
+            <p><strong>Choose Difficulty:</strong></p>
+            <div class="btn-group">
+                <button class="choice-btn diff-btn selected" data-diff="mild" onclick="selectDiff('mild')">
+                    Mild 🐢<br><small>Mixed Patterns<br>(1.5 Seconds)</small>
+                </button>
+                <button class="choice-btn diff-btn" data-diff="hot" onclick="selectDiff('hot')">
+                    Hot 🐇<br><small>Tally & Flash<br>(1.5 Seconds)</small>
+                </button>
+                <button class="choice-btn diff-btn" data-diff="spicy" onclick="selectDiff('spicy')">
+                    Spicy 🐆<br><small>Scattered<br>(1 Second)</small>
+                </button>
+            </div>
+        </div>
+
+        <button class="start-btn" onclick="startGame()">Start Game</button>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen">
+        <div class="top-bar">
+            <button class="menu-btn" onclick="backToSetup()">← Exit</button>
+            <div id="score" style="font-weight:bold; font-size:1.2rem;">Score: 0</div>
+        </div>
+
+        <div class="viewport" id="viewport">
+            <div id="content-layer"></div>
+            <div class="curtain" id="curtain">
+                <span>?</span>
+                <p id="curtain-msg">Get Ready...</p>
+            </div>
+        </div>
+
+        <div id="feedback"></div>
+
+        <button class="action-btn" id="ready-btn" onclick="flashImage()" style="display:block;">I'm Ready!</button>
+        <button class="action-btn peek-btn" id="peek-btn" onclick="peek()">👀 Peek</button>
+        
+        <div class="nav-row">
+            <button class="action-btn" id="next-btn" onclick="nextRound()">Next Number ➡</button>
+            <button class="action-btn levelup-btn" id="levelup-btn" onclick="levelUp()">🔥 Level Up!</button>
+        </div>
+
+        <p style="margin-bottom:5px; color:#666;">How many did you see?</p>
+        <div class="numpad" id="numpad">
+            <!-- Generated 1-10 (or 20) -->
+        </div>
+    </div>
+
+<script>
+    // Config
+    let currentDiff = 'mild';
+    let targetNumber = 0;
+    let score = 0;
+    let flashDuration = 3000;
+    let maxNumber = 10;
+    let isRevealed = false;
+
+    // --- SETUP ---
+    function selectDiff(d) {
+        currentDiff = d;
+        document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+        // Find button based on data-diff to ensure correct highlight if called from code
+        const btn = document.querySelector(`.diff-btn[data-diff="${d}"]`);
+        if(btn) btn.classList.add('selected');
+    }
+
+    function backToSetup() {
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('setup-screen').style.display = 'flex';
+        score = 0;
+        document.getElementById('score').textContent = 'Score: 0';
+    }
+
+    function startGame() {
+        setDifficultyRules();
+        generateNumpad();
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'flex';
+        nextRound();
+    }
+    
+    function setDifficultyRules() {
+        if (currentDiff === 'mild') {
+            flashDuration = 1500; 
+            maxNumber = 10;
+        } else if (currentDiff === 'hot') {
+            flashDuration = 1500;
+            maxNumber = 10;
+        } else {
+            flashDuration = 1000;
+            maxNumber = 12; 
+        }
+    }
+
+    function generateNumpad() {
+        const pad = document.getElementById('numpad');
+        pad.innerHTML = '';
+        for(let i=1; i<=maxNumber; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'num-btn';
+            btn.textContent = i;
+            btn.onclick = () => checkAnswer(i, btn);
+            pad.appendChild(btn);
+        }
+    }
+
+    // --- GAME LOGIC ---
+
+    function nextRound() {
+        // Reset UI
+        document.getElementById('content-layer').innerHTML = '';
+        document.getElementById('curtain').classList.remove('open');
+        document.getElementById('curtain-msg').textContent = "Tap 'Ready'";
+        document.getElementById('feedback').textContent = '';
+        document.getElementById('ready-btn').style.display = 'block';
+        document.getElementById('next-btn').style.display = 'none';
+        document.getElementById('levelup-btn').style.display = 'none';
+        document.getElementById('peek-btn').style.display = 'none';
+        
+        // Reset Numpad
+        document.querySelectorAll('.num-btn').forEach(b => {
+            b.className = 'num-btn';
+            b.disabled = true; // Disable input until flash starts
+        });
+
+        // Generate Target
+        targetNumber = Math.floor(Math.random() * maxNumber) + 1;
+        
+        // Render Hidden Content
+        renderContent(targetNumber);
+    }
+
+    function renderContent(num) {
+        const layer = document.getElementById('content-layer');
+        layer.innerHTML = '';
+
+        if (currentDiff === 'mild') {
+            // MILD: Mix of Ten Frames and Dice Patterns
+            if (Math.random() > 0.5) {
+                layer.appendChild(createTenFrame(num));
+            } else {
+                layer.appendChild(createDiceGroup(num));
+            }
+        } else if (currentDiff === 'hot') {
+            // HOT: Dice (Standard) vs Tally/Patterns (Faster time)
+            if (Math.random() > 0.5) {
+                layer.appendChild(createDiceGroup(num));
+            } else {
+                layer.appendChild(createPatternDots(num));
+            }
+        } else {
+            // SPICY: Scattered
+            createScatteredDots(num, layer);
+        }
+    }
+
+    function flashImage() {
+        document.getElementById('ready-btn').style.display = 'none';
+        document.getElementById('curtain').classList.add('open'); // Reveal
+        
+        isRevealed = true;
+
+        // Start Timer to Hide
+        setTimeout(() => {
+            // Check if game hasn't ended already
+            if (isRevealed) {
+                document.getElementById('curtain').classList.remove('open'); // Hide
+                document.getElementById('curtain-msg').textContent = "What did you see?";
+                isRevealed = false;
+                
+                // Enable Numpad
+                document.querySelectorAll('.num-btn').forEach(b => b.disabled = false);
+                
+                // Show Peek button for help
+                document.getElementById('peek-btn').style.display = 'block';
+            }
+        }, flashDuration);
+    }
+
+    function peek() {
+        document.getElementById('curtain').classList.add('open');
+        document.getElementById('peek-btn').style.display = 'none'; // Can't un-peek
+        document.getElementById('feedback').textContent = "Count them carefully!";
+        document.getElementById('feedback').style.color = "var(--primary)";
+    }
+
+    function checkAnswer(val, btn) {
+        if (val === targetNumber) {
+            // Correct
+            score++;
+            document.getElementById('score').textContent = `Score: ${score}`;
+            btn.classList.add('correct');
+            document.getElementById('feedback').textContent = "Correct! You're fast!";
+            document.getElementById('feedback').style.color = "var(--success)";
+            
+            // Show image if hidden
+            document.getElementById('curtain').classList.add('open');
+            document.getElementById('peek-btn').style.display = 'none';
+            document.getElementById('next-btn').style.display = 'block';
+            
+            // Show Level Up option if not on Spicy
+            if (currentDiff !== 'spicy') {
+                document.getElementById('levelup-btn').style.display = 'block';
+            }
+            
+            // Disable all buttons
+            document.querySelectorAll('.num-btn').forEach(b => b.disabled = true);
+
+        } else {
+            // Incorrect
+            btn.classList.add('wrong');
+            document.getElementById('feedback').textContent = "Not quite. Look again!";
+            document.getElementById('feedback').style.color = "var(--error)";
+            
+            // Auto-reveal for help (Scaffolding)
+            document.getElementById('curtain').classList.add('open');
+            document.getElementById('peek-btn').style.display = 'none';
+        }
+    }
+    
+    function levelUp() {
+        if (currentDiff === 'mild') selectDiff('hot');
+        else if (currentDiff === 'hot') selectDiff('spicy');
+        
+        startGame(); // Re-inits with new rules
+    }
+
+    // --- VISUAL GENERATORS ---
+
+    function createTenFrame(n) {
+        const frame = document.createElement('div');
+        frame.className = 'ten-frame';
+        // Always 10 cells
+        for(let i=0; i<10; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'tf-cell';
+            if (i < n) {
+                const dot = document.createElement('div');
+                dot.className = 'tf-dot';
+                cell.appendChild(dot);
+            }
+            frame.appendChild(cell);
+        }
+        return frame;
+    }
+
+    // New wrapper for single or double dice
+    function createDiceGroup(n) {
+        const container = document.createElement('div');
+        container.className = 'dice-group';
+        
+        if (n <= 6) {
+            container.appendChild(createDice(n));
+        } else {
+            // Create two dice (e.g., 7 -> 6 + 1, or 4 + 3)
+            // Strategy: Max out first die at 6, remainder in second?
+            // Or roughly equal split? Equal split is often easier to subitize (doubles).
+            // Let's do roughly equal split for canonical doubles patterns.
+            const half = Math.floor(n/2);
+            const other = n - half;
+            container.appendChild(createDice(other));
+            container.appendChild(createDice(half));
+        }
+        return container;
+    }
+
+    function createDice(n) {
+        // Standard Dice Positions map (3x3 grid indices)
+        const maps = {
+            1: [4],
+            2: [0, 8],
+            3: [0, 4, 8],
+            4: [0, 2, 6, 8],
+            5: [0, 2, 4, 6, 8],
+            6: [0, 2, 3, 5, 6, 8]
+        };
+        
+        const dice = document.createElement('div');
+        dice.className = 'dice';
+        
+        const pips = maps[n] || [];
+        for(let i=0; i<9; i++) {
+            const span = document.createElement('div');
+            if (pips.includes(i)) span.className = 'dice-pip';
+            dice.appendChild(span);
+        }
+        return dice;
+    }
+
+    function createPatternDots(n) {
+        // Simple flex container for dots (Tally-ish style or simple line)
+        const container = document.createElement('div');
+        container.style.display = 'flex';
+        container.style.gap = '10px';
+        container.style.flexWrap = 'wrap';
+        container.style.justifyContent = 'center';
+        container.style.width = '220px';
+
+        for(let i=0; i<n; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'tf-dot';
+            dot.style.background = '#673AB7'; // Purple for Hot
+            container.appendChild(dot);
+        }
+        return container;
+    }
+
+    function createScatteredDots(n, container) {
+        for(let i=0; i<n; i++) {
+            const dot = document.createElement('div');
+            dot.className = 'dot-scatter';
+            
+            // Keep away from edges
+            const x = Math.random() * 80 + 10; 
+            const y = Math.random() * 80 + 10; 
+            
+            dot.style.left = x + '%';
+            dot.style.top = y + '%';
+            
+            container.appendChild(dot);
+        }
+    }
+
+</script>
+</body>
+</html>
